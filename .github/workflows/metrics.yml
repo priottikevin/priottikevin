@@ -13,6 +13,7 @@ jobs:
     permissions:
       contents: write
     steps:
+      # 1) Carte principale : en-tete + calendrier (aucun nom de depot expose)
       - uses: lowlighter/metrics@latest
         with:
           filename: metrics.svg
@@ -20,24 +21,47 @@ jobs:
           user: priottikevin
           template: classic
           config_timezone: Europe/Paris
-          # Sections de base sans liste de dépôts ni flux d'activité (pas de noms de dépôts privés)
-          base: header, repositories
-          # Calendrier d'activité sur l'année
+          base: header
           plugin_isocalendar: yes
           plugin_isocalendar_duration: full-year
-          # Langages (dépôts privés inclus, seuls les pourcentages sont publiés)
-          plugin_languages: yes
-          plugin_languages_details: percentage
-          plugin_languages_limit: 8
-          plugin_languages_analysis_timeout: 15
-          # Habitudes de code (heures, jours, faits)
-          plugin_habits: yes
-          plugin_habits_charts: yes
-          plugin_habits_facts: yes
-          plugin_habits_from: 100
-          plugin_habits_days: 30
-          # Lignes ajoutées / supprimées, totaux uniquement
-          plugin_lines: yes
-          plugin_lines_sections: base
           # NE PAS activer : plugin_notable, plugin_projects, plugin_repositories,
-          # plugin_activity, base "activity" -> ils peuvent exposer des noms de dépôts privés
+          # plugin_activity, base "activity" -> exposent des noms de depots prives
+
+      # 2) Carte langages calculee sur tous les depots (prives inclus), seuls les % sont publies
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Generate languages.svg
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.METRICS_TOKEN }}
+          script: |
+            const fs = require("fs");
+            const IGNORED = ["HTML", "CSS", "SCSS", "Less", "Dockerfile", "Shell", "Batchfile", "PowerShell", "Procfile"];
+            const COLORS = { Java: "#b07219", TypeScript: "#3178c6", JavaScript: "#f1e05a", "C#": "#178600", Python: "#3572A5", Kotlin: "#A97BFF", Go: "#00ADD8", PHP: "#4F5D95", Dart: "#00B4AB", Swift: "#F05138", Vue: "#41b883", Svelte: "#ff3e00", SQL: "#e38c00", PLpgSQL: "#336790", "C++": "#f34b7d", C: "#555555", Ruby: "#701516", Rust: "#dea584", Groovy: "#4298b8", Scala: "#c22d40", "Objective-C": "#438eff" };
+            const repos = await github.paginate(github.rest.repos.listForAuthenticatedUser, { affiliation: "owner", per_page: 100 });
+            const totals = {};
+            for (const r of repos) {
+              if (r.fork) continue;
+              const { data } = await github.rest.repos.listLanguages({ owner: r.owner.login, repo: r.name });
+              for (const [k, v] of Object.entries(data)) if (!IGNORED.includes(k)) totals[k] = (totals[k] || 0) + v;
+            }
+            const sum = Object.values(totals).reduce((a, b) => a + b, 0) || 1;
+            let langs = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+            const top = langs.slice(0, 8);
+            const rest = langs.slice(8).reduce((a, b) => a + b[1], 0);
+            if (rest > 0) top.push(["Autres", rest]);
+            const W = 480, P = 25, BAR = W - 2 * P;
+            let x = P, bar = "";
+            top.forEach(([k, v], i) => { const w = v / sum * BAR; bar += "<rect x=\"" + x.toFixed(2) + "\" y=\"52\" width=\"" + w.toFixed(2) + "\" height=\"10\" fill=\"" + (COLORS[k] || "#8b949e") + "\"/>"; x += w; });
+            let legend = "";
+            top.forEach(([k, v], i) => { const col = i % 2, row = Math.floor(i / 2); const lx = P + col * 220, ly = 92 + row * 24; legend += "<circle cx=\"" + (lx + 5) + "\" cy=\"" + (ly - 4) + "\" r=\"5\" fill=\"" + (COLORS[k] || "#8b949e") + "\"/><text x=\"" + (lx + 16) + "\" y=\"" + ly + "\" class=\"l\">" + k + " <tspan class=\"p\">" + (v / sum * 100).toFixed(1) + "%</tspan></text>"; });
+            const H = 92 + Math.ceil(top.length / 2) * 24 + 6;
+            const svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"" + W + "\" height=\"" + H + "\" viewBox=\"0 0 " + W + " " + H + "\"><style>.t{font:600 16px -apple-system,Segoe UI,Helvetica,Arial,sans-serif;fill:#0969da}.l{font:400 13px -apple-system,Segoe UI,Helvetica,Arial,sans-serif;fill:#57606a}.p{fill:#8b949e}@media (prefers-color-scheme:dark){.t{fill:#58a6ff}.l{fill:#c9d1d9}}</style><rect x=\"0.5\" y=\"0.5\" rx=\"6\" width=\"" + (W - 1) + "\" height=\"" + (H - 1) + "\" fill=\"none\" stroke=\"#d0d7de\"/><text x=\"" + P + "\" y=\"34\" class=\"t\">Langages les plus utilis\u00e9s (" + repos.filter(r => !r.fork).length + " d\u00e9p\u00f4ts)</text><clipPath id=\"c\"><rect x=\"" + P + "\" y=\"52\" width=\"" + BAR + "\" height=\"10\" rx=\"5\"/></clipPath><g clip-path=\"url(#c)\">" + bar + "</g>" + legend + "</svg>";
+            fs.writeFileSync("languages.svg", svg);
+      - name: Commit languages.svg
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add languages.svg
+          git diff --cached --quiet || (git commit -m "Update languages.svg [skip ci]" && git push)
