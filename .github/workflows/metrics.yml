@@ -40,17 +40,20 @@ jobs:
             const IGNORED = ["HTML", "CSS", "SCSS", "Less", "Dockerfile", "Shell", "Batchfile", "PowerShell", "Procfile"];
             const COLORS = { Java: "#b07219", TypeScript: "#3178c6", JavaScript: "#f1e05a", "C#": "#178600", Python: "#3572A5", Kotlin: "#A97BFF", Go: "#00ADD8", PHP: "#4F5D95", Dart: "#00B4AB", Swift: "#F05138", Vue: "#41b883", Svelte: "#ff3e00", SQL: "#e38c00", PLpgSQL: "#336790", "C++": "#f34b7d", C: "#555555", Ruby: "#701516", Rust: "#dea584", Groovy: "#4298b8", Scala: "#c22d40", "Objective-C": "#438eff" };
             const repos = await github.paginate(github.rest.repos.listForAuthenticatedUser, { affiliation: "owner", per_page: 100 });
-            const totals = {};
+            const totals = {}, counts = {};
             for (const r of repos) {
               if (r.fork) continue;
               const { data } = await github.rest.repos.listLanguages({ owner: r.owner.login, repo: r.name });
-              for (const [k, v] of Object.entries(data)) if (!IGNORED.includes(k)) totals[k] = (totals[k] || 0) + v;
+              for (const [k, v] of Object.entries(data)) if (!IGNORED.includes(k)) { totals[k] = (totals[k] || 0) + v; counts[k] = (counts[k] || 0) + 1; }
             }
+            // Ponderation : sqrt(octets) x sqrt(nb de depots) -> un gros depot ne domine pas tout
+            for (const k in totals) totals[k] = Math.sqrt(totals[k]) * Math.sqrt(counts[k]);
             const sum = Object.values(totals).reduce((a, b) => a + b, 0) || 1;
             let langs = Object.entries(totals).sort((a, b) => b[1] - a[1]);
-            const top = langs.slice(0, 8);
-            const rest = langs.slice(8).reduce((a, b) => a + b[1], 0);
-            if (rest > 0) top.push(["Autres", rest]);
+            // Seuil : langages sous 0,5 % regroupes dans Autres, 8 langages max
+            const top = langs.filter(l => l[1] / sum >= 0.005).slice(0, 8);
+            const rest = sum - top.reduce((a, b) => a + b[1], 0);
+            if (rest / sum >= 0.005) top.push(["Autres", rest]);
             const W = 480, P = 25, BAR = W - 2 * P;
             let x = P, bar = "";
             top.forEach(([k, v], i) => { const w = v / sum * BAR; bar += "<rect x=\"" + x.toFixed(2) + "\" y=\"52\" width=\"" + w.toFixed(2) + "\" height=\"10\" fill=\"" + (COLORS[k] || "#8b949e") + "\"/>"; x += w; });
