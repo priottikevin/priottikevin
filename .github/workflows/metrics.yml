@@ -44,10 +44,10 @@ jobs:
             for (const r of repos) {
               if (r.fork) continue;
               const { data } = await github.rest.repos.listLanguages({ owner: r.owner.login, repo: r.name });
-              for (const [k, v] of Object.entries(data)) if (!IGNORED.includes(k)) { totals[k] = (totals[k] || 0) + v; counts[k] = (counts[k] || 0) + 1; }
+              // Filtre de bruit : dans chaque depot, on ignore les langages < 10 % (fichiers de config, scripts annexes)
+              const repoTotal = Object.entries(data).filter(([k]) => !IGNORED.includes(k)).reduce((a, [, v]) => a + v, 0) || 1;
+              for (const [k, v] of Object.entries(data)) if (!IGNORED.includes(k) && v / repoTotal >= 0.10) { totals[k] = (totals[k] || 0) + v; counts[k] = (counts[k] || 0) + 1; }
             }
-            // Ponderation : sqrt(octets) x sqrt(nb de depots) -> un gros depot ne domine pas tout
-            for (const k in totals) totals[k] = Math.sqrt(totals[k]) * Math.sqrt(counts[k]);
             const sum = Object.values(totals).reduce((a, b) => a + b, 0) || 1;
             let langs = Object.entries(totals).sort((a, b) => b[1] - a[1]);
             // Seuil : langages sous 0,5 % regroupes dans Autres, 8 langages max
