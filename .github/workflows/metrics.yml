@@ -22,7 +22,6 @@ jobs:
           config_timezone: Europe/Paris
           # Sections de base sans liste de dépôts ni flux d'activité (pas de noms de dépôts privés)
           base: header, repositories
-          repositories_affiliations: owner
           # Calendrier d'activité sur l'année
           plugin_isocalendar: yes
           plugin_isocalendar_duration: full-year
@@ -35,14 +34,10 @@ jobs:
           plugin_habits: yes
           plugin_habits_charts: yes
           plugin_habits_facts: yes
-          plugin_habits_from: 200
+          plugin_habits_from: 100
           plugin_habits_days: 30
           # Lignes ajoutées / supprimées, totaux uniquement
           plugin_lines: yes
           plugin_lines_sections: base
-          # Achievements
-          plugin_achievements: yes
-          plugin_achievements_display: compact
-          plugin_achievements_threshold: B
           # NE PAS activer : plugin_notable, plugin_projects, plugin_repositories,
           # plugin_activity, base "activity" -> ils peuvent exposer des noms de dépôts privés
