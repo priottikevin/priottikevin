@@ -22,3 +22,5 @@ Je conçois et je livre des applications web et mobiles de bout en bout, du back
 La plupart de mes projets sont privés (clients et produits). Les statistiques ci-dessous incluent ces dépôts, sans en exposer le code.
 
 ![Metrics](/metrics.svg)
+
+![Langages](/languages.svg)
