@@ -1,6 +1,6 @@
 # Kevin Priotti
 
-Développeur full-stack senior, plus de 20 ans d'expérience. Fondateur de **K-LIX**.
+Développeur full-stack senior, plus de 20 ans d'expérience.
 Je conçois et je livre des applications web et mobiles de bout en bout, du back-end à l'infrastructure.
 
 ### Stack
